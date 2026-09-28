@@ -21,11 +21,24 @@ spec:
     spec:
       serviceAccountName: redis-sa
       automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
 
       containers:
         - name: redis
           image: redis:7.4-alpine
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 1000
+            capabilities:
+              drop:
+                - ALL
 
           ports:
             - name: redis
@@ -63,3 +76,11 @@ spec:
             limits:
               cpu: "250m"
               memory: "128Mi"
+
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+
+      volumes:
+        - name: redis-data
+          emptyDir: {}

@@ -22,11 +22,22 @@ spec:
     spec:
       serviceAccountName: postgresql-sa
       automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
 
       containers:
         - name: postgresql
           image: postgres:16.4-alpine
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 70
+            runAsGroup: 70
+            capabilities:
+              drop:
+                - ALL
 
           ports:
             - name: postgresql
