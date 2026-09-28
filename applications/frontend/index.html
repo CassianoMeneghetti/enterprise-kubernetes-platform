@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enterprise Platform</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <div class="brand-mark">EP</div>
+        <div>
+          <strong>Enterprise</strong>
+          <span>Platform</span>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Platform sections">
+        <a class="nav-item active" href="/" aria-current="page">
+          <span class="nav-dot"></span>
+          Overview
+        </a>
+        <span class="nav-item disabled">
+          <span class="nav-dot"></span>
+          Workloads
+        </span>
+        <span class="nav-item disabled">
+          <span class="nav-dot"></span>
+          Infrastructure
+        </span>
+        <span class="nav-item disabled">
+          <span class="nav-dot"></span>
+          Observability
+        </span>
+        <span class="nav-item disabled">
+          <span class="nav-dot"></span>
+          Deployments
+        </span>
+        <span class="nav-item disabled">
+          <span class="nav-dot"></span>
+          Security
+        </span>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Environment <span>PRODUCTION</span></p>
+          <h1>Enterprise Platform</h1>
+          <p class="subtitle">Kubernetes infrastructure and application status</p>
+        </div>
+        <div class="sync-state" title="Last API status refresh">
+          <span id="sync-indicator" class="sync-dot pending"></span>
+          <span id="last-refresh">Checking API</span>
+        </div>
+      </header>
+
+      <section class="status-grid" aria-label="Platform status">
+        <article class="metric-card">
+          <p class="metric-label">Cluster Status</p>
+          <div class="metric-row">
+            <span class="status-pill healthy">HEALTHY</span>
+          </div>
+          <p class="metric-detail">KIND production namespace available</p>
+        </article>
+
+        <article class="metric-card">
+          <p class="metric-label">API Status</p>
+          <div class="metric-row">
+            <span id="api-status" class="status-pill pending">CHECKING</span>
+          </div>
+          <p id="api-detail" class="metric-detail">Waiting for /api/status</p>
+        </article>
+
+        <article class="metric-card">
+          <p class="metric-label">Active Instance</p>
+          <div class="metric-row">
+            <span id="active-instance" class="instance-value">-</span>
+          </div>
+          <p class="metric-detail">Current responding backend pod</p>
+        </article>
+
+        <article class="metric-card">
+          <p class="metric-label">PostgreSQL</p>
+          <div class="metric-row">
+            <span id="postgres-status" class="status-pill pending">CHECKING</span>
+          </div>
+          <p id="postgres-detail" class="metric-detail">Waiting for database check</p>
+        </article>
+
+        <article class="metric-card">
+          <p class="metric-label">Redis</p>
+          <div class="metric-row">
+            <span id="redis-status" class="status-pill pending">CHECKING</span>
+          </div>
+          <p id="redis-detail" class="metric-detail">Waiting for cache check</p>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Runtime Signal</h2>
+            <p>Live response from the production API ingress path</p>
+          </div>
+          <button id="refresh-button" class="icon-button" type="button" title="Refresh status" aria-label="Refresh status">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M20 12a8 8 0 0 1-13.66 5.66M4 12A8 8 0 0 1 17.66 6.34M18 3v4h-4M6 21v-4h4"></path>
+            </svg>
+          </button>
+        </div>
+
+        <dl class="signal-list">
+          <div>
+            <dt>Cluster</dt>
+            <dd id="cluster-name">-</dd>
+          </div>
+          <div>
+            <dt>Uptime</dt>
+            <dd id="api-uptime">-</dd>
+          </div>
+          <div>
+            <dt>Timestamp</dt>
+            <dd id="api-timestamp">-</dd>
+          </div>
+          <div>
+            <dt>Database Check</dt>
+            <dd id="database-check">-</dd>
+          </div>
+          <div>
+            <dt>Cache Check</dt>
+            <dd id="cache-check">-</dd>
+          </div>
+        </dl>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

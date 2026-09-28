@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: enterprise-frontend
+  namespace: production
+  labels:
+    app: enterprise-frontend
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: enterprise-frontend
+
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80

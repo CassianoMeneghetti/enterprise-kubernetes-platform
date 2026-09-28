@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-config
+  namespace: production
+  labels:
+    app: postgresql
+
+data:
+  POSTGRES_DB: enterprise
+  POSTGRES_USER: enterprise_app
