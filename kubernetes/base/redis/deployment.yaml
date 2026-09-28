@@ -19,6 +19,9 @@ spec:
         app: redis
 
     spec:
+      serviceAccountName: redis-sa
+      automountServiceAccountToken: false
+
       containers:
         - name: redis
           image: redis:7.4-alpine

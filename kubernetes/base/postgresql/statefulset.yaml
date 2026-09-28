@@ -20,6 +20,9 @@ spec:
         app: postgresql
 
     spec:
+      serviceAccountName: postgresql-sa
+      automountServiceAccountToken: false
+
       containers:
         - name: postgresql
           image: postgres:16.4-alpine

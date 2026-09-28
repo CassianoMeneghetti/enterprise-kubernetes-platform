@@ -19,6 +19,9 @@ spec:
         app: enterprise-frontend
 
     spec:
+      serviceAccountName: enterprise-frontend-sa
+      automountServiceAccountToken: false
+
       containers:
         - name: enterprise-frontend
           image: enterprise-platform-frontend:v2

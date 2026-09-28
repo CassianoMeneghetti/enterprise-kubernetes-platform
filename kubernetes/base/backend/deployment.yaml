@@ -19,6 +19,9 @@ spec:
         app: enterprise-api
 
     spec:
+      serviceAccountName: enterprise-api-sa
+      automountServiceAccountToken: false
+
       containers:
         - name: enterprise-api
           image: enterprise-platform-api:v3
