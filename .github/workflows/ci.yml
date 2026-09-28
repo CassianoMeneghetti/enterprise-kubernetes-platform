@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: applications/backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: applications/backend
+        run: npm ci
+
+      - name: Detect npm scripts
+        working-directory: applications/backend
+        run: |
+          set -euo pipefail
+          node <<'NODE' >> "$GITHUB_ENV"
+          const scripts = require("./package.json").scripts || {};
+          const hasRealTest = Boolean(scripts.test && !scripts.test.includes("no test specified"));
+          console.log(`HAS_BACKEND_TEST=${hasRealTest}`);
+          console.log(`HAS_BACKEND_LINT=${Boolean(scripts.lint)}`);
+          NODE
+
+      - name: Run backend tests
+        if: env.HAS_BACKEND_TEST == 'true'
+        working-directory: applications/backend
+        run: npm test
+
+      - name: Skip backend tests
+        if: env.HAS_BACKEND_TEST != 'true'
+        run: echo "No real backend test script found; skipping."
+
+      - name: Run backend lint
+        if: env.HAS_BACKEND_LINT == 'true'
+        working-directory: applications/backend
+        run: npm run lint
+
+      - name: Skip backend lint
+        if: env.HAS_BACKEND_LINT != 'true'
+        run: echo "No backend lint script found; skipping."
+
+      - name: Validate backend syntax
+        working-directory: applications/backend
+        run: node --check server.js
+
+      - name: Validate backend startup
+        working-directory: applications/backend
+        run: |
+          set -euo pipefail
+          npm start > /tmp/enterprise-api.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          sleep 3
+          curl --fail --silent --show-error http://127.0.0.1:3000/health
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate static frontend files
+        run: |
+          set -euo pipefail
+          test -s applications/frontend/index.html
+          test -s applications/frontend/styles.css
+          test -s applications/frontend/app.js
+          test -s applications/frontend/nginx.conf
+          grep -q "/api/status" applications/frontend/app.js
+          grep -q "Enterprise Platform" applications/frontend/index.html
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t enterprise-platform-api:ci applications/backend
+
+      - name: Build frontend image
+        run: docker build -t enterprise-platform-frontend:ci applications/frontend
+
+  kubernetes:
+    name: Kubernetes Manifests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate YAML syntax
+        run: |
+          set -euo pipefail
+          ruby -e 'require "yaml"; files = `git ls-files "*.yml" "*.yaml"`.split("\n").reject { |file| file.end_with?(".local.yaml") }; files.each { |file| YAML.load_stream(File.read(file)) }; puts "Validated #{files.length} YAML files."'
+
+      - name: Install kubeconform
+        run: |
+          set -euo pipefail
+          version="0.6.7"
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/v${version}/kubeconform-linux-amd64.tar.gz" | tar -xz kubeconform
+          sudo mv kubeconform /usr/local/bin/kubeconform
+
+      - name: Validate Kubernetes manifests
+        run: |
+          set -euo pipefail
+          mapfile -t manifests < <(git ls-files 'kubernetes/base/*.yaml' 'kubernetes/base/**/*.yaml' | grep -vE '(^|/)(secret\.local\.yaml|.*-secret\.local\.yaml)$')
+          kubeconform -strict -ignore-missing-schemas -summary "${manifests[@]}"
+
+  secret-hygiene:
+    name: Secret Hygiene
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure local secrets are not tracked
+        run: |
+          set -euo pipefail
+          blocked_files="$(git ls-files | grep -E '(^|/)(secret\.local\.yaml|.*-secret\.local\.yaml|live-postgresql-config\.yaml)$' || true)"
+          if [ -n "$blocked_files" ]; then
+            echo "::error::Local secret or live configuration files are tracked:"
+            echo "$blocked_files"
+            exit 1
+          fi
+          echo "No local secret or live configuration files are tracked."
