@@ -27,7 +27,7 @@ spec:
 
       containers:
         - name: enterprise-api
-          image: ghcr.io/cassianomeneghetti/enterprise-platform-api:9d313c444a286ad3528163a7e1f67d4ca5babc46
+          image: ghcr.io/cassianomeneghetti/enterprise-platform-api:67fda3a6ef6f4c0d113f9ed2bf51911cba00e3ad
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
