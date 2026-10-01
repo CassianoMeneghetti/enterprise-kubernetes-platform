@@ -16,7 +16,7 @@ spec:
       labels:
         app: promtail
       annotations:
-        observability.enterprise-platform/config-version: "2026-10-01-01"
+        observability.enterprise-platform/config-version: "2026-10-01-02"
 
     spec:
       serviceAccountName: promtail
@@ -37,6 +37,7 @@ spec:
 
           args:
             - -config.file=/etc/promtail/promtail.yml
+            - -config.enable-watch=false
 
           ports:
             - name: http
