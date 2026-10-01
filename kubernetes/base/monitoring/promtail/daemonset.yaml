@@ -16,7 +16,7 @@ spec:
       labels:
         app: promtail
       annotations:
-        observability.enterprise-platform/config-version: "2026-10-01-02"
+        observability.enterprise-platform/config-version: "2026-10-01-03"
 
     spec:
       serviceAccountName: promtail
@@ -37,7 +37,6 @@ spec:
 
           args:
             - -config.file=/etc/promtail/promtail.yml
-            - -config.enable-watch=false
 
           ports:
             - name: http
@@ -73,6 +72,9 @@ spec:
             - name: pod-logs
               mountPath: /var/log/pods
               readOnly: true
+            - name: container-logs
+              mountPath: /var/log/containers
+              readOnly: true
 
       volumes:
         - name: promtail-config
@@ -83,4 +85,8 @@ spec:
         - name: pod-logs
           hostPath:
             path: /var/log/pods
+            type: Directory
+        - name: container-logs
+          hostPath:
+            path: /var/log/containers
             type: Directory
