@@ -27,7 +27,7 @@ spec:
 
       containers:
         - name: enterprise-frontend
-          image: ghcr.io/cassianomeneghetti/enterprise-platform-frontend:f65e2f6a5c1d591349b31a0dd411de356e3f6c5f
+          image: ghcr.io/cassianomeneghetti/enterprise-platform-frontend:9d313c444a286ad3528163a7e1f67d4ca5babc46
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
