@@ -1,5 +1,6 @@
 const express = require("express");
 const os = require("os");
+const crypto = require("crypto");
 const promClient = require("prom-client");
 const { Pool } = require("pg");
 const { createClient } = require("redis");
@@ -31,8 +32,21 @@ const redis = createClient({
     }
 });
 
+function writeLog(level, message, fields = {}) {
+    console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        service: "enterprise-platform-api",
+        instance: os.hostname(),
+        ...fields
+    }));
+}
+
 redis.on("error", (error) => {
-    console.error("Redis client error:", error.message);
+    writeLog("error", "redis_client_error", {
+        error: error.message
+    });
 });
 
 const register = new promClient.Registry();
@@ -61,6 +75,12 @@ const httpErrorsTotal = new promClient.Counter({
     labelNames: ["method", "route", "status_code"]
 });
 
+const httpRequestsInFlight = new promClient.Gauge({
+    name: "enterprise_http_requests_in_flight",
+    help: "HTTP requests currently being processed by the Enterprise API."
+});
+httpRequestsInFlight.set(0);
+
 const postgresqlUp = new promClient.Gauge({
     name: "enterprise_postgresql_up",
     help: "PostgreSQL dependency health. 1 means online, 0 means offline."
@@ -82,12 +102,18 @@ const appUptime = new promClient.Gauge({
 register.registerMetric(httpRequestsTotal);
 register.registerMetric(httpRequestDuration);
 register.registerMetric(httpErrorsTotal);
+register.registerMetric(httpRequestsInFlight);
 register.registerMetric(postgresqlUp);
 register.registerMetric(redisUp);
 register.registerMetric(appUptime);
 
 app.use((req, res, next) => {
     const started = process.hrtime.bigint();
+    const requestId = req.headers["x-request-id"] || crypto.randomUUID();
+
+    req.requestId = requestId;
+    res.setHeader("X-Request-Id", requestId);
+    httpRequestsInFlight.inc();
 
     res.on("finish", () => {
         const duration = Number(process.hrtime.bigint() - started) / 1e9;
@@ -104,6 +130,15 @@ app.use((req, res, next) => {
         if (res.statusCode >= 500) {
             httpErrorsTotal.inc(labels);
         }
+
+        httpRequestsInFlight.dec();
+        writeLog(res.statusCode >= 500 ? "error" : "info", "http_request_completed", {
+            requestId,
+            method: req.method,
+            route,
+            status: res.statusCode,
+            durationMs: Math.round(duration * 1000)
+        });
     });
 
     next();
@@ -278,5 +313,7 @@ process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Enterprise API running on port ${PORT}`);
+    writeLog("info", "api_started", {
+        port: PORT
+    });
 });

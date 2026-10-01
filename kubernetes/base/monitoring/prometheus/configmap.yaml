@@ -12,6 +12,9 @@ data:
       scrape_interval: 15s
       evaluation_interval: 15s
 
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
     scrape_configs:
       - job_name: prometheus
         static_configs:
@@ -43,6 +46,22 @@ data:
             target_label: namespace
           - source_labels: [__meta_kubernetes_service_name]
             target_label: service
+
+      - job_name: postgresql-exporter
+        static_configs:
+          - targets:
+              - postgresql-exporter.production.svc.cluster.local:9187
+            labels:
+              namespace: production
+              service: postgresql
+
+      - job_name: redis-exporter
+        static_configs:
+          - targets:
+              - redis-exporter.production.svc.cluster.local:9121
+            labels:
+              namespace: production
+              service: redis
 
       - job_name: kubernetes-kubelet
         scheme: https

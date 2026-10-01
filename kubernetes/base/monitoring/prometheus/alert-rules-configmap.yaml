@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alert-rules
+  namespace: monitoring
+  labels:
+    app: prometheus
+
+data:
+  enterprise-platform-alerts.yml: |
+    groups:
+      - name: enterprise-platform.rules
+        rules:
+          - alert: EnterpriseApiDown
+            expr: up{job="enterprise-api"} == 0
+            for: 2m
+            labels:
+              severity: critical
+              service: enterprise-api
+            annotations:
+              summary: Enterprise API target is down
+              description: Prometheus has been unable to scrape an enterprise-api target for more than 2 minutes.
+
+          - alert: EnterpriseApiHighHttp5xxRate
+            expr: sum(rate(enterprise_http_requests_total{status_code=~"5.."}[5m])) / clamp_min(sum(rate(enterprise_http_requests_total[5m])), 0.001) > 0.05
+            for: 5m
+            labels:
+              severity: warning
+              service: enterprise-api
+            annotations:
+              summary: Enterprise API HTTP 5xx rate is elevated
+              description: More than 5 percent of Enterprise API requests are returning 5xx responses.
+
+          - alert: EnterpriseApiHighLatencyP95
+            expr: histogram_quantile(0.95, sum(rate(enterprise_http_request_duration_seconds_bucket[5m])) by (le)) > 0.5
+            for: 5m
+            labels:
+              severity: warning
+              service: enterprise-api
+            annotations:
+              summary: Enterprise API p95 latency is high
+              description: Enterprise API p95 latency has been above 500ms for 5 minutes.
+
+          - alert: PodRestartingFrequently
+            expr: sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total[15m])) > 3
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Pod is restarting frequently
+              description: Pod {{ $labels.namespace }}/{{ $labels.pod }} restarted more than 3 times in 15 minutes.
+
+          - alert: PostgreSQLDown
+            expr: pg_up == 0
+            for: 2m
+            labels:
+              severity: critical
+              service: postgresql
+            annotations:
+              summary: PostgreSQL exporter reports database down
+              description: PostgreSQL has been unavailable to postgres-exporter for more than 2 minutes.
+
+          - alert: RedisDown
+            expr: redis_up == 0
+            for: 2m
+            labels:
+              severity: critical
+              service: redis
+            annotations:
+              summary: Redis exporter reports cache down
+              description: Redis has been unavailable to redis-exporter for more than 2 minutes.
+
+          - alert: WorkloadHighCpu
+            expr: sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) > 0.5
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: Pod CPU usage is high
+              description: Pod {{ $labels.namespace }}/{{ $labels.pod }} has used more than 0.5 CPU cores for 10 minutes.
+
+          - alert: WorkloadHighMemory
+            expr: sum by (namespace, pod) (container_memory_working_set_bytes{container!="",pod!=""}) > 500 * 1024 * 1024
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: Pod memory usage is high
+              description: Pod {{ $labels.namespace }}/{{ $labels.pod }} has used more than 500MiB for 10 minutes.
+
+          - alert: DeploymentWithoutAvailableReplicas
+            expr: kube_deployment_status_replicas_available < 1
+            for: 3m
+            labels:
+              severity: critical
+            annotations:
+              summary: Deployment has no available replicas
+              description: Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has no available replicas.

@@ -20,11 +20,23 @@ spec:
 
     spec:
       serviceAccountName: kube-state-metrics
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
 
       containers:
         - name: kube-state-metrics
           image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            capabilities:
+              drop:
+                - ALL
 
           ports:
             - name: http

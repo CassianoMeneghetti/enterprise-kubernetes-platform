@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: promtail
+  namespace: monitoring
+  labels:
+    app: promtail
+
+spec:
+  selector:
+    matchLabels:
+      app: promtail
+
+  template:
+    metadata:
+      labels:
+        app: promtail
+
+    spec:
+      serviceAccountName: promtail
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: promtail
+          image: grafana/promtail:3.2.1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          args:
+            - -config.file=/etc/promtail/promtail.yml
+
+          ports:
+            - name: http
+              containerPort: 3101
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3101
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 3101
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "192Mi"
+
+          volumeMounts:
+            - name: promtail-config
+              mountPath: /etc/promtail
+            - name: promtail-run
+              mountPath: /run/promtail
+            - name: pod-logs
+              mountPath: /var/log/pods
+              readOnly: true
+
+      volumes:
+        - name: promtail-config
+          configMap:
+            name: promtail-config
+        - name: promtail-run
+          emptyDir: {}
+        - name: pod-logs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
