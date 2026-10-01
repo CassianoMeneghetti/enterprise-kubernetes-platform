@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - kubernetes/base/backend/deployment.yaml
+      - kubernetes/base/frontend/deployment.yaml
   pull_request:
     branches:
       - main
@@ -119,7 +122,7 @@ jobs:
       - docker-build
       - kubernetes
       - secret-hygiene
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(gitops): deploy') }}"
     permissions:
       contents: read
       packages: write
@@ -174,6 +177,69 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  gitops-update:
+    name: GitOps Image Update
+    runs-on: ubuntu-latest
+    needs:
+      - publish-images
+    if: "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(gitops): deploy') }}"
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Avoid stale image updates
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          remote_sha="$(git rev-parse origin/main)"
+          if [ "$remote_sha" != "$GITHUB_SHA" ]; then
+            echo "origin/main advanced to ${remote_sha}; skipping GitOps update for ${GITHUB_SHA}."
+            exit 0
+          fi
+
+      - name: Update Kubernetes image references
+        env:
+          API_IMAGE: ghcr.io/cassianomeneghetti/enterprise-platform-api:${{ github.sha }}
+          FRONTEND_IMAGE: ghcr.io/cassianomeneghetti/enterprise-platform-frontend:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ruby <<'RUBY'
+          updates = {
+            "kubernetes/base/backend/deployment.yaml" => ENV.fetch("API_IMAGE"),
+            "kubernetes/base/frontend/deployment.yaml" => ENV.fetch("FRONTEND_IMAGE")
+          }
+
+          updates.each do |file, image|
+            content = File.read(file)
+            updated = content.sub(/^(\s*image:\s*).+$/, "\\1#{image}")
+
+            if updated == content
+              raise "No image field was updated in #{file}"
+            end
+
+            File.write(file, updated)
+          end
+          RUBY
+
+      - name: Commit GitOps image update
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- kubernetes/base/backend/deployment.yaml kubernetes/base/frontend/deployment.yaml; then
+            echo "Kubernetes manifests already reference ${GITHUB_SHA}; nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kubernetes/base/backend/deployment.yaml kubernetes/base/frontend/deployment.yaml
+          git commit -m "chore(gitops): deploy ${GITHUB_SHA}"
+          git push origin HEAD:main
 
   kubernetes:
     name: Kubernetes Manifests

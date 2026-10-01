@@ -74,8 +74,88 @@ Nesta etapa, Kubernetes ainda nao consome as imagens do GHCR.
 
 Os manifests em `kubernetes/base` continuam usando as imagens locais atuais. A troca dos manifests para GHCR sera realizada somente na Etapa 8C.
 
+## Etapa 8C - Automated GitOps image update
+
+A automacao de entrega conecta o build ao fluxo GitOps sem acesso direto ao cluster pelo GitHub Actions.
+
+Fluxo:
+
+```text
+Developer
+  |
+  v
+GitHub
+  |
+  v
+GitHub Actions
+  |
+  v
+CI
+  |
+  v
+Docker Build
+  |
+  v
+GHCR
+  |
+  v
+GitOps Manifest Update
+  |
+  v
+Git Commit
+  |
+  v
+Argo CD
+  |
+  v
+Rolling Update
+  |
+  v
+Kubernetes
+```
+
+O pipeline produz artefatos, publica imagens no GHCR e atualiza declarativamente o Git.
+
+O Argo CD continua sendo o unico componente responsavel por reconciliar o Kubernetes.
+
+## Atualizacao dos manifests
+
+Apos a publicacao das imagens, o job `gitops-update` altera somente os campos `image:` destes manifests:
+
+- `kubernetes/base/backend/deployment.yaml`
+- `kubernetes/base/frontend/deployment.yaml`
+
+As imagens passam a apontar para tags baseadas no commit SHA:
+
+- `ghcr.io/cassianomeneghetti/enterprise-platform-api:<sha>`
+- `ghcr.io/cassianomeneghetti/enterprise-platform-frontend:<sha>`
+
+Nenhum outro campo de workload e alterado pelo job.
+
+## Protecao anti-loop
+
+O commit automatico usa a mensagem:
+
+```text
+chore(gitops): deploy <sha>
+```
+
+O workflow ignora pushes que alteram somente os manifests de imagem atualizados pelo job GitOps. Os jobs de publicacao e atualizacao tambem ignoram commits cuja mensagem comeca com `chore(gitops): deploy`.
+
+O job valida que `origin/main` ainda aponta para o mesmo SHA antes de escrever os manifests. Se outro commit mais novo ja tiver chegado, a atualizacao antiga e ignorada para evitar regressao de imagem.
+
+## Permissoes do GitOps update
+
+Somente o job `gitops-update` possui permissao de escrita no repositorio:
+
+```yaml
+permissions:
+  contents: write
+```
+
+O workflow nao recebe kubeconfig, nao chama `kubectl` para deploy e nao acessa a API do cluster.
+
 ## Proximos passos
 
-- Consumir as imagens do GHCR nos manifests Kubernetes.
-- Automatizar atualizacao controlada de tags ou digests nos manifests.
+- Avaliar pinning por digest para ambientes mais rigorosos.
 - Evoluir o pipeline para validacoes adicionais de seguranca e qualidade.
